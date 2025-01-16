@@ -1,11 +1,7 @@
 import requests
-from django.http import HttpResponse, JsonResponse
-from django.shortcuts import render, redirect
-import json
-import pycurl
-from io import BytesIO
-
-from socks import HTTPError
+from decouple import config
+from django.http import HttpResponse
+from django.shortcuts import redirect
 
 
 # Create your views here.
@@ -13,7 +9,7 @@ def home(request):
     return HttpResponse("Hello, world. You're at the strivers home page index.")
 
 def strava_login(request):
-    client_id = '85428'
+    client_id = config('CLIENT_ID')
     redirect_uri = 'http://localhost:8000/strivers/strava_callback/'
     scope = 'activity:read_all'
     response_type = 'code'
@@ -27,10 +23,10 @@ def strava_login(request):
     return redirect(strava_url)
 
 def strava_callback(request):
+    client_id = config('CLIENT_ID')
+    client_secret = config('CLIENT_SECRET')
     code = request.GET.get('code')
     scope = request.GET.get('scope')
-    client_id = "85428"
-    client_secret = 'c7bd4b8cb5b6e340abe0b91214ba2f91d0dd87bd'
 
     # Exchange code for access token
     token_url = 'https://www.strava.com/oauth/token'
