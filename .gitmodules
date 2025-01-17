@@ -1,3 +1,6 @@
 [submodule "strivers/strava-swagger"]
 	path = strivers/strava-swagger
 	url = https://github.com/jiversivers/strava-swagger.git
+[submodule "strava-swagger"]
+	path = strava-swagger
+	url = https://github.com/jiversivers/strava-swagger.git
