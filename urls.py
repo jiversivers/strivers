@@ -20,6 +20,7 @@ from strivers import views
 
 urlpatterns = [
     path('', views.home, name='strivers'),
-    path('strava_login/', views.strava_login, name='login'),
-    path('strava_callback/', views.strava_callback, name='callback'),
+    path('authorize/', views.authorize, name='authroize'),
+    path('strava_callback/', views.authorization_callback, name='callback'),
+    path('get_activities/', views.get_activities, name='get_activities'),
 ]

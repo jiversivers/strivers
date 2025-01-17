@@ -2,14 +2,15 @@ import requests
 from decouple import config
 from django.http import HttpResponse
 from django.shortcuts import redirect
-from .strava-swagger import swagger-client
+import swagger_client as sc
+from swagger_client.rest import ApiException
 
 
 # Create your views here.
 def home(request):
-    return HttpResponse("Hello, world. You're at the strivers home page index.")
+    return HttpResponse("Hello, world. You're at the Strivers home page index.")
 
-def strava_login(request):
+def authorize(request):
     client_id = config('CLIENT_ID')
     redirect_uri = 'http://localhost:8000/strivers/strava_callback/'
     scope = 'activity:read_all'
@@ -23,7 +24,7 @@ def strava_login(request):
 
     return redirect(strava_url)
 
-def strava_callback(request):
+def authorization_callback(request):
     client_id = config('CLIENT_ID')
     client_secret = config('CLIENT_SECRET')
     code = request.GET.get('code')
@@ -53,6 +54,21 @@ def strava_callback(request):
         return HttpResponse('Successful authorization! Redirecting...')
 
 def get_activities(request):
-    activities_url = "https://www.strava.com/api/v3/athlete/activities?before=&after=&page=&per_page=" \
+    # Configure OAuth2 access token for authorization: strava_oauth
+    configuration = sc.Configuration()
+    configuration.access_token = '675c1854baabb592e9aca1a6fb3a00284c7536f2'
 
-    authorization = "Authorization: Bearer [[token]]"
+    # create an instance of the API class
+    api_instance = sc.ActivitiesApi(sc.ApiClient(configuration))
+    before = 56  # int | An epoch timestamp to use for filtering activities that have taken place before a certain time. (optional)
+    after = 56  # int | An epoch timestamp to use for filtering activities that have taken place after a certain time. (optional)
+    page = 56  # int | Page number. Defaults to 1. (optional)
+    per_page = 30  # int | Number of items per page. Defaults to 30. (optional) (default to 30)
+
+    try:
+        # List Athlete Activities
+        api_response = api_instance.get_logged_in_athlete_activities(before=before, after=after, page=page,
+                                                                     per_page=per_page)
+        return HttpResponse(api_response)
+    except ApiException as e:
+        return HttpResponse("Exception when calling ActivitiesApi->get_logged_in_athlete_activities: %s\n" % e)
