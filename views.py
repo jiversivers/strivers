@@ -2,6 +2,7 @@ import requests
 from decouple import config
 from django.http import HttpResponse
 from django.shortcuts import redirect
+from .strava-swagger import swagger-client
 
 
 # Create your views here.
@@ -50,3 +51,8 @@ def strava_callback(request):
         return HttpResponse('Strivers results will be limited to public data only. Click here to login again or continue anyway.')
     else:
         return HttpResponse('Successful authorization! Redirecting...')
+
+def get_activities(request):
+    activities_url = "https://www.strava.com/api/v3/athlete/activities?before=&after=&page=&per_page=" \
+
+    authorization = "Authorization: Bearer [[token]]"
