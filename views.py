@@ -2,13 +2,14 @@ import json
 
 import requests
 from decouple import config
+from datetime import datetime, timedelta
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect, render
 import swagger_client as sc
 from django.urls import reverse
 from swagger_client.rest import ApiException
 
-from strivers.clients import client
+from strivers.clients import configured_client
 from strivers.models import Athlete, ActivityOverview
 
 
@@ -36,7 +37,7 @@ def home(request):
 
     # If there is a cookie, set session to match and load athlete details
     if 'user_id' in request.COOKIES:
-        request.sesion['access_token'] = Athlete.objects.get(pk=request.COOKIES['user_id'])
+        request.session['access_token'] = Athlete.objects.get(pk=request.COOKIES['user_id'])
         context['issaved'] = True
         context['username'] = Athlete.objects.get(athlete_id=request.session['athlete_id'])
 
@@ -104,7 +105,8 @@ def authorization_callback(request):
     request.session['access_token'] = response_data.get('access_token')
     request.session['refresh_token'] = response_data.get('refresh_token')
     request.session['expires_in'] = response_data.get('expires_in')
-    request.session['athlete_id'] = response_data.get('athlete_id')
+    request.session['athlete'] = response_data.get('athlete')
+
 
     # Ask about a cookie
     return render(request,'strivers/cookie_quest.html')
@@ -115,15 +117,19 @@ def store_cookie(request):
 
     # Set the cookie
     if request.method == 'POST' and request.POST['cookie'] == 'yes':
+        expires_at = datetime.now() + timedelta(seconds=request.session['expires_in'])
+
         # Put profile and access info into a db indexed by athlete ID
-        user_info = Athlete(access_token=request.sesion.get('access_token'),
+        user_info = Athlete(athlete_id=request.session['athlete']['id'],
+                            username=request.session['athlete']['username'],
+                            first_name=request.session['athlete']['firstname'],
+                            last_name=request.session['athlete']['lastname'],
+                            access_token=request.session.get('access_token'),
                             refresh_token=request.session['refresh_token'],
-                            expires_at=request.session['expires_at'],
-                            athlete_id=request.session['athlete_id'])
+                            expires_at=expires_at)
         user_info.save()
 
         # Place the cookie (unique pk in Athlete objects db)
-
         response.set_cookie('user_id',
                             str(user_info.id),
                             max_age=60 * 60 * 24 * 30, # 30 days
@@ -138,8 +144,11 @@ def get_activities(request):
 
     try:
         # List Athlete Activities
-        api_response = json.dumps(sc.ActivitiesApi(client.get_logged_in_athlete_activities(page=page, per_page=per_page)),
-                                  indent=4, sort_keys=True, separators=(',', ': '))
+        api_instance = sc.ActivitiesApi(configured_client)
+        api_response = json.dumps(
+            api_instance.get_logged_in_athlete_activities(page=page, per_page=per_page),
+                                  indent=4, sort_keys=True, separators=(',', ': ')
+        )
         return HttpResponse(api_response)
     except ApiException as e:
         return HttpResponse("Exception when calling ActivitiesApi->get_logged_in_athlete_activities: %s\n" % e)
@@ -148,7 +157,7 @@ def analysis_tools(request):
     pass
 
 def logout(request):
-    client.configuration.access_token = None
+    configured_client.configuration.access_token = None
     request.session.pop('access_token')
 
     return redirect('strivers:home')
