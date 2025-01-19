@@ -1,17 +1,21 @@
+import uuid
+
 from django.contrib import admin
 from django.db import models
 
 # Model to store athlete data for API access and global Strava athlete info
 class Athlete(models.Model):
-    id = models.BigAutoField(primary_key=True) # Random int to hide actual athlete ID
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False) # Random int to hide actual athlete ID
     athlete_id = models.BigIntegerField(unique=True) # Strava number
     username = models.CharField(max_length=120) # Strava name
+    first_name = models.CharField(max_length=120)
+    last_name = models.CharField(max_length=120)
     access_token = models.CharField(max_length=64, unique=True) # access token
     refresh_token = models.CharField(max_length=64, unique=True) # refresh token
     expires_at = models.DateTimeField('expiration date') # token expiry
 
     def __str__(self):
-        return self.username
+        return f'{self.first_name} {self.last_name}'
 
 # Model to store activities overview list (averages, names, etc.)
 class ActivityOverview(models.Model):
