@@ -19,8 +19,10 @@ from django.urls import path, include
 from strivers import views
 
 urlpatterns = [
-    path('', views.home, name='strivers'),
-    path('authorize/', views.authorize, name='authroize'),
-    path('strava_callback/', views.authorization_callback, name='callback'),
+    path('', views.index, name='index'),
+    path('home/', views.home, name='strivers'),
+    path('authorize/', views.authorize, name='authorize'),
+    path('callback/', views.authorization_callback, name='callback'),
     path('get_activities/', views.get_activities, name='get_activities'),
+    path('analysis_tools/', views.analysis_tools, name='analysis_tools'),
 ]
