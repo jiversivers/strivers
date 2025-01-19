@@ -12,28 +12,50 @@ from strivers.clients import client
 from strivers.models import Athlete, ActivityOverview
 
 
-# TODO: Check if user was previously authenticated by looking for a cookie. If so, set client config and redirect to home. Else, redirect to login
+# Check for authentication state and route accordingly
 def index(request):
-    if 'user_id' in request.COOKIES:
-        request.session['access_token'] = Athlete.objects.get(pk=request.COOKIES['user_id']) # Get access token for given cookie
-        return HttpResponseRedirect(reverse('home'))
+    # Session authed...ready to go to home
+    if 'access_token' in request.session:
+        return redirect('strivers:home')
+
+    # User authed, session not...need to look up and set session. Then go to home
+    elif 'user_id' in request.COOKIES:
+        request.session['access_token'] = Athlete.objects.get(pk=request.COOKIES['user_id'])
+        return redirect('strivers:home')
+
+    # Not authed at all...send to authorization view
     else:
-        return HttpResponseRedirect(reverse('authorize'))
+        return redirect('strivers:authorize')
 
 
 def home(request):
-    if 'access_token' not in request.session:
-        return HttpResponseRedirect(reverse('index'))
-    elif ActivityOverview.objects.filter(athlete_id=request.session.get('athlete_id')).count() > 0:
-        context = {'option-action': zip(['Update Activities', 'Analyze'], ['/get_activities/', '/analysis_tools/'])}
-    else:
-         context = {'option-action': zip(['Get Activities'], ['/get_activities/'])}
+    context = {}
+    # If session is not authorized
+    if 'access_token' not in request.session and 'user_id' not in request.COOKIES:
+            context['option_action'] = [('Authorize on Strava', reverse('strivers:authorize'))]
 
-    if Athlete.objects.filter(athlete_id=request.session.get('athlete_id')):
+    # If there is a cookie, set session to match and load athlete details
+    if 'user_id' in request.COOKIES:
+        request.sesion['access_token'] = Athlete.objects.get(pk=request.COOKIES['user_id'])
         context['issaved'] = True
-        context['username'] = Athlete.objects.get(athlete_id=request.session.get('athlete_id'))
-    else:
-        context['issaved'] = False
+        context['username'] = Athlete.objects.get(athlete_id=request.session['athlete_id'])
+
+    # If the session is authorized
+    if 'access_token' in request.session:
+        # At least some activities have been loaded for the athlete
+        if ActivityOverview.objects.filter(athlete_id=request.session['athlete_id']).count() > 0:
+            context['option_action'] = [('Update Activities', reverse('strivers:get_activities')),
+                                        ('Analyze', reverse('strivers:analysis_tools'))]
+
+        # No activities, so no analyze option
+        else:
+             context['option_action'] = [('Get Activities', reverse('strivers:get_activities'))]
+    for key, value in context.items():
+        if key == 'option-action':
+            for opt, act in value:
+                print(f'{key}: {opt} --> {act}')
+        else:
+            print(f'{key}: {value}')
 
     return render(request,
                   'strivers/home.html',
@@ -52,17 +74,22 @@ def authorize(request):
         f"&response_type={response_type}&scope={scope}"
     )
 
-    return redirect(strava_url)
+    return HttpResponseRedirect(strava_url)
 
 def authorization_callback(request):
-    client_id = config('CLIENT_ID')
-    client_secret = config('CLIENT_SECRET')
+    # Get auth returns
     code = request.GET.get('code')
     scope = request.GET.get('scope')
 
-    print(request.POST.get('confirm_limit'))
+    # Config app specifics for exchange
+    client_id = config('CLIENT_ID')
+    client_secret = config('CLIENT_SECRET')
 
-    # Exchange code for access token
+    # Check if full scope was given and confirm selection if not
+    if scope != 'read,activity:read_all' and ('confirm_limit' not in request.POST or request.POST.get('confirm_limit') == 'reauthorize'):
+        return render(request, 'strivers/confirm_limit.html')
+
+    # Exchange code for user access token
     token_url = 'https://www.strava.com/oauth/token'
     data = {
         'client_id': client_id,
@@ -70,50 +97,41 @@ def authorization_callback(request):
         'code': code,
         'grant_type': 'authorization_code'
     }
+    response = requests.post(token_url, data=data)
+    response_data = response.json()
 
-    if 'auth_response' not in request.session:
-        response = requests.post(token_url, data=data)
-        response_data = response.json()
-        request.session['auth_response'] = response_data
-        request.session['athlete_id'] = response_data.get('athlete_id')
+    # Store athlete access info into session (note: swagger client configuration will be updated
+    request.session['access_token'] = response_data.get('access_token')
+    request.session['refresh_token'] = response_data.get('refresh_token')
+    request.session['expires_in'] = response_data.get('expires_in')
+    request.session['athlete_id'] = response_data.get('athlete_id')
 
+    # Ask about a cookie
+    return render(request,'strivers/cookie_quest.html')
 
+def store_cookie(request):
+    # Default behavior no matter what
+    response = redirect('strivers:home')
 
-    # Check that scope was given, if not, check if they have already confirmed they don't want to
-    if scope != 'read,activity:read_all' and 'confirm_limit' not in request.POST:
-        return render(request, 'strivers/confirm_limit.html')
-    elif 'store_cookie' not in request.POST:
-        return render(request,'strivers/cookie_quest.html')
-    else:
-        # Retrieve and apply the access token
-        response_data = request.session['auth_response']
-        access_token = response_data.get('access_token')
-        request.session['access_token'] = access_token
-        client.configuration.access_token = access_token
-        response = HttpResponseRedirect(reverse('strivers:home'))
+    # Set the cookie
+    if request.method == 'POST' and request.POST['cookie'] == 'yes':
+        # Put profile and access info into a db indexed by athlete ID
+        user_info = Athlete(access_token=request.sesion.get('access_token'),
+                            refresh_token=request.session['refresh_token'],
+                            expires_at=request.session['expires_at'],
+                            athlete_id=request.session['athlete_id'])
+        user_info.save()
 
-        if request.POST.get('store_cookie') == 'store':
-            # Get refresh info
-            refresh_token = response_data.get('refresh_token')
-            expires_at = response_data.get('expires_at')
+        # Place the cookie (unique pk in Athlete objects db)
 
-            # Put profile and access info into a db indexed by athlete ID
-            user_info = Athlete(access_token=access_token,
-                                refresh_token=refresh_token,
-                                expires_at=expires_at,
-                                athlete_id=request.session['athlete_id'])
-            user_info.save()
+        response.set_cookie('user_id',
+                            str(user_info.id),
+                            max_age=60 * 60 * 24 * 30, # 30 days
+                            httponly=True,
+                            secure=True)
+    return response
 
-            # Place the cookie
-            response.set_cookie('user_id',
-                                str(user_info.id),
-                                max_age=60 * 60 * 24 * 30,
-                                httponly=True,
-                                secure=True)
-        else:
-            return HttpResponseRedirect(response)
-
-
+# TODO: Set up database to store where activity loading left off to accommodate updating activities list
 def get_activities(request):
     page = 1
     per_page = 100
@@ -133,4 +151,4 @@ def logout(request):
     client.configuration.access_token = None
     request.session.pop('access_token')
 
-    return HttpResponseRedirect(redirect('home'))
+    return redirect('strivers:home')

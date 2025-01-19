@@ -18,14 +18,14 @@
     {% endif %}
 </header>
 <body>
-    {% for button, action in option_actions %}
-        <form action="{{ action }}" method="POST">
+    {% for opt, act in option_action %}
+        <form action="{{ act }}" method="POST">
         {% csrf_token %}
-            <button type="submit">{{ button }}</button>
+            <button type="submit">{{ opt }}</button>
         </form>
     {% endfor %}
 </body>
 <footer>
-    Issue? Please <a href="mailto:iversjesse@gmail.com">contact me!</a>
+    Issue? Please <a href="www.github.com/jiversivers/strivers">submit an issue on GitHub</a>!
 </footer>
 </html>

@@ -11,17 +11,16 @@
     give you will just prevent you from having to sign in to Strava everytime you come here. Its no big deal if you want to
     say no. Your session will still be preserved so you will only have to sign in at the beginning of each session.
     What do you think?
-    <form method="POST" action="{% url 'home' %}">
+    <form method="POST" action={% url 'strivers:store_cookie' %}>
+    <fieldset>
+        <legend>Accept the cookie?</legend>
+        <input type="radio" id="cookies-yes" name="cookie" value="yes">
+        <label for="cookies-yes">Yes</label>
+        <input type="radio" id="cookies-no" name="cookie" value="no">
+        <label for="cookies-no">No</label>
+    </fieldset>
         {% csrf_token %}
-        <fieldset>
-            <input type="radio" name="store_cookie" id="store" value="store">
-            <label for="store">That's my kind of cookie!</label>
-            <label>
-                <input type="radio" name="store_cookie" value="reject" checked="checked">
-            </label>
-            <label for="no_cookie">No cookie for me, thanks.</label>
-        </fieldset>
-        <button type="submit">Submit</button>
+        <button type="submit">Ok</button>
     </form>
 </body>
 </html>
