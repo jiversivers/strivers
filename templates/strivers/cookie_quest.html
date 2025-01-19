@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Limited Scope</title>
+</head>
+<body>
+    I'd like to offer you one measly cookie. I personally hate how cookies have been used against us
+    and despise how every website I go to nowadays wants me to sign my life away with their "Sell yourself to the highest
+    bidder" checkbox defaulted to on. The thing is, though, cookies at their core are useful. This one that I would like to
+    give you will just prevent you from having to sign in to Strava everytime you come here. Its no big deal if you want to
+    say no. Your session will still be preserved so you will only have to sign in at the beginning of each session.
+    What do you think?
+    <form method="POST" action="{% url 'home' %}">
+        {% csrf_token %}
+        <fieldset>
+            <input type="radio" name="store_cookie" id="store" value="store">
+            <label for="store">That's my kind of cookie!</label>
+            <label>
+                <input type="radio" name="store_cookie" value="reject" checked="checked">
+            </label>
+            <label for="no_cookie">No cookie for me, thanks.</label>
+        </fieldset>
+        <button type="submit">Submit</button>
+    </form>
+</body>
+</html>

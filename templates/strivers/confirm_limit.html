@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Limited Scope</title>
+</head>
+<body>
+    Warning! You are limited to {{ scope.name }}. This will limit the data available to you for analysis.
+    <form action="{% url 'callback' %}" method="POST">
+        {% csrf_token %}
+        <button type="submit" name="confirm_limit" value="callback">Continue anyway</button>
+    </form>
+    <form action="{% url 'authorize' %}" method="POST">
+        {% csrf_token %}
+        <button type="submit" name="confirm_limit" value="reauthorize">Reauthorize</button>
+    </form>
+</body>
+</html>
