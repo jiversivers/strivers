@@ -1,7 +1,7 @@
 import json
+from decouple import config
 
 import requests
-from decouple import config
 from datetime import datetime, timedelta
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect, render
