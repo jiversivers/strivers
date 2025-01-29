@@ -9,7 +9,6 @@ import swagger_client as sc
 from django.urls import reverse
 from swagger_client.rest import ApiException
 
-from strivers.clients import configured_client
 from strivers.models import Athlete, ActivityOverview
 
 
@@ -37,26 +36,23 @@ def home(request):
 
     # If there is a cookie, set session to match and load athlete details
     if 'user_id' in request.COOKIES:
-        request.session['access_token'] = Athlete.objects.get(pk=request.COOKIES['user_id'])
+        request.session['access_token'] = Athlete.objects.get(pk=request.COOKIES['user_id']).access_token
         context['issaved'] = True
-        context['username'] = Athlete.objects.get(athlete_id=request.session['athlete_id'])
+        context['username'] = Athlete.objects.get(athlete_id=request.session['athlete']['id']).username
 
     # If the session is authorized
     if 'access_token' in request.session:
+        if 'username' not in context:
+            context['username'] = request.session['athlete']['username']
+
         # At least some activities have been loaded for the athlete
-        if ActivityOverview.objects.filter(athlete_id=request.session['athlete_id']).count() > 0:
+        if ActivityOverview.objects.filter(athlete_id=request.session['athlete']['id']).count() > 0:
             context['option_action'] = [('Update Activities', reverse('strivers:get_activities')),
                                         ('Analyze', reverse('strivers:analysis_tools'))]
 
         # No activities, so no analyze option
         else:
              context['option_action'] = [('Get Activities', reverse('strivers:get_activities'))]
-    for key, value in context.items():
-        if key == 'option-action':
-            for opt, act in value:
-                print(f'{key}: {opt} --> {act}')
-        else:
-            print(f'{key}: {value}')
 
     return render(request,
                   'strivers/home.html',
@@ -114,20 +110,23 @@ def authorization_callback(request):
 def store_cookie(request):
     # Default behavior no matter what
     response = redirect('strivers:home')
-
     # Set the cookie
     if request.method == 'POST' and request.POST['cookie'] == 'yes':
         expires_at = datetime.now() + timedelta(seconds=request.session['expires_in'])
 
-        # Put profile and access info into a db indexed by athlete ID
-        user_info = Athlete(athlete_id=request.session['athlete']['id'],
-                            username=request.session['athlete']['username'],
-                            first_name=request.session['athlete']['firstname'],
-                            last_name=request.session['athlete']['lastname'],
-                            access_token=request.session.get('access_token'),
-                            refresh_token=request.session['refresh_token'],
-                            expires_at=expires_at)
-        user_info.save()
+        # Check if athlete is already in database (even if reauthorizing)
+        if Athlete.objects.filter(athlete_id=request.session['athlete']['id']).count() == 0:
+            # Put profile and access info into a db indexed by athlete ID
+            user_info = Athlete(athlete_id=request.session['athlete']['id'],
+                                username=request.session['athlete']['username'],
+                                first_name=request.session['athlete']['firstname'],
+                                last_name=request.session['athlete']['lastname'],
+                                access_token=request.session.get('access_token'),
+                                refresh_token=request.session['refresh_token'],
+                                expires_at=expires_at)
+            user_info.save()
+        else:
+            user_info = Athlete.objects.get(athlete_id=request.session['athlete']['id'])
 
         # Place the cookie (unique pk in Athlete objects db)
         response.set_cookie('user_id',
@@ -139,25 +138,23 @@ def store_cookie(request):
 
 # TODO: Set up database to store where activity loading left off to accommodate updating activities list
 def get_activities(request):
+    client = getattr(request, 'configured_client', None)
     page = 1
     per_page = 100
-
-    try:
-        # List Athlete Activities
-        api_instance = sc.ActivitiesApi(configured_client)
-        api_response = json.dumps(
-            api_instance.get_logged_in_athlete_activities(page=page, per_page=per_page),
-                                  indent=4, sort_keys=True, separators=(',', ': ')
-        )
-        return HttpResponse(api_response)
-    except ApiException as e:
-        return HttpResponse("Exception when calling ActivitiesApi->get_logged_in_athlete_activities: %s\n" % e)
-
+    if client:
+        try:
+            # List Athlete Activities
+            api_instance = sc.ActivitiesApi(client)
+            api_response = api_instance.get_logged_in_athlete_activities(page=page, per_page=per_page)
+            return HttpResponse(api_response)
+        except ApiException as e:
+            return HttpResponse("Exception when calling ActivitiesApi->get_logged_in_athlete_activities: %s\n" % e)
+    else:
+        return redirect('strivers:authorize')
 def analysis_tools(request):
     pass
 
 def logout(request):
-    configured_client.configuration.access_token = None
     request.session.pop('access_token')
 
     return redirect('strivers:home')
