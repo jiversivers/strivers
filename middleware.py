@@ -1,9 +1,8 @@
 from django.utils.deprecation import MiddlewareMixin
-import swagger_client as sc
-from strivers.clients import configured_client
+from strivers.clients import get_configured_client
 
 class SetAccessToken(MiddlewareMixin):
     def process_request(self, request):
         access_token = request.session.get('access_token')
         if access_token:
-            configured_client.configuration.access_token = access_token
+            request.configured_client = get_configured_client(access_token)
