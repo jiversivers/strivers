@@ -9,7 +9,7 @@
     <h1>Strivers</h1>
     {% if issaved %}
         <h2> Welcome back, {{ username }} </h2>
-        <form action="{% url 'logout' %}" method="POST">
+        <form action="{% url 'strivers:logout' %}" method="POST">
             {% csrf_token %}
             <button type="submit">Logout?</button>
         </form>
