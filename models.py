@@ -13,6 +13,8 @@ class Athlete(models.Model):
     access_token = models.CharField(max_length=64, unique=True) # access token
     refresh_token = models.CharField(max_length=64, unique=True) # refresh token
     expires_at = models.DateTimeField('expiration date') # token expiry
+    scope = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f'{self.first_name} {self.last_name}'
