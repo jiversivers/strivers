@@ -19,6 +19,31 @@ class Athlete(models.Model):
     def __str__(self):
         return f'{self.first_name} {self.last_name}'
 
+    def to_dict(self):
+        return {
+            'id': str(self.id),  # UUID needs to be converted to a string
+            'athlete_id': self.athlete_id,
+            'username': self.username,
+            'first_name': self.first_name,
+            'last_name': self.last_name,
+            'access_token': self.access_token,
+            'refresh_token': self.refresh_token,
+            'expires_at': self.expires_at.timestamp(),  # Store as UNIX timestamp
+        }
+
+    @classmethod
+    def from_dict(cls, data):
+        return cls(
+            id=uuid.UUID(data['id']),
+            athlete_id=data['athlete_id'],
+            username=data['username'],
+            first_name=data['first_name'],
+            last_name=data['last_name'],
+            access_token=data['access_token'],
+            refresh_token=data['refresh_token'],
+            expires_at=models.DateTimeField().to_python(data['expires_at']),
+        )
+
 # Model to store activities overview list (averages, names, etc.)
 class ActivityOverview(models.Model):
     athlete_id = models.ForeignKey(Athlete, on_delete=models.CASCADE) # Points to which athlete this activity is from
