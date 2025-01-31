@@ -1,5 +1,6 @@
 from decouple import config
 import requests
+from django.http import Http404
 from django.utils import timezone
 from django.utils.deprecation import MiddlewareMixin
 from strivers.clients import get_configured_client
@@ -23,7 +24,7 @@ class EvalAccessToken(MiddlewareMixin):
                     'client_id': client_id,
                     'client_secret': client_secret,
                     'grant_type': 'refresh_token',
-                    'refresh_token': athlete.refresh_token,
+                    'refresh_token': athlete['refresh_token'],
                 }
                 response = requests.post(token_url, data=data)
                 response_data = response.json()
@@ -34,12 +35,16 @@ class EvalAccessToken(MiddlewareMixin):
                 request.session['athlete']['expires_at'] = response_data.get('expires_at')
 
                 # If the athlete is in the database, update it
-                athlete = Athlete.objects.get(athlete_id=athlete['id'])
-                if athlete:
+                try:
+                    athlete = Athlete.objects.get(athlete_id=athlete['athlete_id'])
                     athlete.access_token = response_data.get('access_token')
                     athlete.expires_at = response_data.get('expires_at')
                     athlete.refresh_token = response_data.get('refresh_token')
                     athlete.save()
+                except Athlete.DoesNotExist:
+                    pass
+                else:
+                    Http404('Failed to update athlete database.')
 
             # Set an up-to-date access token for the API client
             request.configured_client = get_configured_client(athlete['access_token'])
