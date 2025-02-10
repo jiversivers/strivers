@@ -14,14 +14,20 @@ from strivers.models import Athlete, ActivityOverview
 
 # Check for authentication state and route accordingly
 def index(request):
+    request.session['index'] = 'passed'
     # Session authed...ready to go to home
     if 'athlete' in request.session:
         return redirect('strivers:home')
 
     # User authed, session not...need to look up and set session. Then go to home
     elif 'user_id' in request.COOKIES:
-        request.session['athlete'] = Athlete.objects.get(pk=request.COOKIES['user_id'])
-        return redirect('strivers:home')
+        try:
+            request.session['athlete'] = Athlete.objects.get(pk=request.COOKIES['user_id'])
+            return redirect('strivers:home')
+        except Athlete.DoesNotExist:
+            response = redirect('strivers:authorize')
+            response.delete_cookie('user_id')
+            return response
 
     # Not authed at all...send to authorization view
     else:
@@ -36,14 +42,17 @@ def home(request):
 
     # If there is a cookie, set session to match and load athlete details
     if 'user_id' in request.COOKIES:
-        athlete = Athlete.objects.get(pk=request.COOKIES['user_id'])
+        try:
+            athlete = Athlete.objects.get(pk=request.COOKIES['user_id'])
+        except Athlete.DoesNotExist:
+            return HttpResponse('ERROR: Bad cookie. Clear your cookies and try again.', status=404)
         request.session['athlete'] = athlete
         context['issaved'] = True
         context['name'] = athlete.first_name
 
     # If the session is authorized
     if 'athlete' in request.session:
-        athlete = request.session['athlete']
+        athlete = request.session.get('athlete')
         if 'username' not in context:
             context['name'] = athlete.first_name
 
@@ -104,14 +113,15 @@ def authorization_callback(request):
 
     # Store athlete info into session (note: swagger client configuration will be updated in middleware)
     # (model of data only saved in db past session if cookie is accepted)
-    request.session['athlete'] = {'athlete_id': response_data['athlete']['id'],
-                                  'username': response_data['athlete']['username'],
-                                  'first_name': response_data['athlete']['firstname'],
-                                  'last_name': response_data['athlete']['lastname'],
-                                  'access_token': response_data['access_token'],
-                                  'refresh_token': response_data['refresh_token'],
-                                  'expires_at': response_data['expires_at'],
-                                  'scope': scope}
+    athlete = Athlete(athlete_id=response_data['athlete']['id'],
+                      username=response_data['athlete']['username'],
+                      first_name=response_data['athlete']['firstname'],
+                      last_name=response_data['athlete']['lastname'],
+                      access_token=response_data['access_token'],
+                      refresh_token=response_data['refresh_token'],
+                      expires_at=response_data['expires_at'],
+                      scope=scope)
+    request.session['athlete'] = athlete.to_dict()
 
     # Ask about a cookie
     return render(request,'strivers/cookie_quest.html')
@@ -119,28 +129,21 @@ def authorization_callback(request):
 def store_cookie(request):
     # Default behavior no matter what
     response = redirect('strivers:home')
-    athlete = request.session['athlete']
+    athlete = request.session.get('athlete')
+    print(athlete)
 
     # Set the cookie and save to/update database
     if request.method == 'POST' and request.POST['cookie'] == 'yes':
 
         # Check if athlete is already in database (even if reauthorizing)
-        if Athlete.objects.filter(athlete_id=request.session['athlete']['athlete_id']).count() == 0:
-            athlete_model = Athlete(athlete_id=str(request.session['athlete']['athlete_id']),
-                                  username=request.session['athlete']['username'],
-                                  first_name=request.session['athlete']['first_name'],
-                                  last_name=request.session['athlete']['last_name'],
-                                  access_token=request.session['athlete']['access_token'],
-                                  refresh_token=request.session['athlete']['refresh_token'],
-                                  expires_at=datetime.fromtimestamp(request.session['athlete']['expires_at']),
-                                  scope=request.session['athlete']['scope'])
-            athlete_model.save()
+        if Athlete.objects.filter(athlete_id=athlete.athlete_id).count() == 0:
+            athlete.save()
         else:
-            athlete_model = Athlete.objects.get(athlete_id=request.session['athlete']['athlete_id'])
+            athlete = Athlete.objects.get(athlete_id=athlete.athlete_id)
 
         # Place the cookie (unique pk in Athlete objects db)
         response.set_cookie('user_id',
-                            str(athlete_model.id),
+                            str(athlete.id),
                             max_age=60 * 60 * 24 * 30, # 30 days
                             httponly=True,
                             secure=True)
