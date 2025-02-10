@@ -2,6 +2,8 @@ import uuid
 
 from django.contrib import admin
 from django.db import models
+from datetime import datetime
+
 
 # Model to store athlete data for API access and global Strava athlete info
 class Athlete(models.Model):
@@ -16,6 +18,13 @@ class Athlete(models.Model):
     scope = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    def save(self, *args, **kwargs):
+        if isinstance(self.expires_at, int):
+            self.expires_at = datetime.fromtimestamp(self.expires_at)
+        if isinstance(self.athlete_id, str):
+            self.athlete_id = int(self.athlete_id)
+        super().save(self, *args, **kwargs)
+
     def __str__(self):
         return f'{self.first_name} {self.last_name}'
 
@@ -28,7 +37,7 @@ class Athlete(models.Model):
             'last_name': self.last_name,
             'access_token': self.access_token,
             'refresh_token': self.refresh_token,
-            'expires_at': self.expires_at.timestamp(),  # Store as UNIX timestamp
+            'expires_at': self.expires_at,
         }
 
     @classmethod
