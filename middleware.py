@@ -10,10 +10,19 @@ from strivers.models import Athlete
 class EvalAccessToken(MiddlewareMixin):
     def process_request(self, request):
         # If an athlete has been setup for the session (in any way, except state by Strava)
-        athlete = request.session.get('athlete')
-        if athlete and 'access_token' in athlete:
+        if 'athlete' in request.session and 'access_token' in request.session['athlete']:
+            athlete = request.session.get('athlete')
+            print('deserialized: ', athlete)
+
+            # If the athlete is in the database, get it for updating
+            try:
+                athlete = Athlete.objects.get(athlete_id=athlete['athlete_id'])
+                athlete_in_db = True
+            except Athlete.DoesNotExist:
+                athlete_in_db = False
+
             # Check if the access token has expired and renew if needed
-            if athlete['expires_at'] < timezone.now().timestamp():
+            if athlete.expires_at < timezone.now().timestamp():
                 # Config app specifics for exchange
                 client_id = config('CLIENT_ID')
                 client_secret = config('CLIENT_SECRET')
@@ -28,23 +37,16 @@ class EvalAccessToken(MiddlewareMixin):
                 }
                 response = requests.post(token_url, data=data)
                 response_data = response.json()
+                athlete.access_token = response_data.get('access_token')
+                athlete.expires_at = response_data.get('expires_at')
+                athlete.refresh_token = response_data.get('refresh_token')
 
-                # Store athlete access info into session (note: swagger client configuration will be updated
-                request.session['athlete']['access_token'] = response_data.get('access_token')
-                request.session['athlete']['refresh_token'] = response_data.get('refresh_token')
-                request.session['athlete']['expires_at'] = response_data.get('expires_at')
-
-                # If the athlete is in the database, update it
-                try:
-                    athlete = Athlete.objects.get(athlete_id=athlete['athlete_id'])
-                    athlete.access_token = response_data.get('access_token')
-                    athlete.expires_at = response_data.get('expires_at')
-                    athlete.refresh_token = response_data.get('refresh_token')
+                if athlete_in_db:
                     athlete.save()
-                except Athlete.DoesNotExist:
-                    pass
-                else:
-                    Http404('Failed to update athlete database.')
 
             # Set an up-to-date access token for the API client
-            request.configured_client = get_configured_client(athlete['access_token'])
+            request.configured_client = get_configured_client(athlete.access_token)
+
+            # Put updated athlete into session
+            request.session['athlete'] = athlete
+            request.session.save()
