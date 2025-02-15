@@ -23,7 +23,7 @@ class Athlete(models.Model):
             self.expires_at = datetime.fromtimestamp(self.expires_at)
         if isinstance(self.athlete_id, str):
             self.athlete_id = int(self.athlete_id)
-        super().save(self, *args, **kwargs)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f'{self.first_name} {self.last_name}'
