@@ -14,7 +14,6 @@ from strivers.models import Athlete, ActivityOverview
 
 # Check for authentication state and route accordingly
 def index(request):
-    request.session['index'] = 'passed'
     # Session authed...ready to go to home
     if 'athlete' in request.session:
         return redirect('strivers:home')
@@ -121,7 +120,7 @@ def authorization_callback(request):
                       refresh_token=response_data['refresh_token'],
                       expires_at=response_data['expires_at'],
                       scope=scope)
-    request.session['athlete'] = athlete.to_dict()
+    request.session['athlete'] = athlete
 
     # Ask about a cookie
     return render(request,'strivers/cookie_quest.html')
@@ -130,7 +129,6 @@ def store_cookie(request):
     # Default behavior no matter what
     response = redirect('strivers:home')
     athlete = request.session.get('athlete')
-    print(athlete)
 
     # Set the cookie and save to/update database
     if request.method == 'POST' and request.POST['cookie'] == 'yes':
