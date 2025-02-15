@@ -1,28 +1,29 @@
+import json
+
 from decouple import config
 import requests
-from django.http import Http404
 from django.utils import timezone
 from django.utils.deprecation import MiddlewareMixin
 from strivers.clients import get_configured_client
 from strivers.models import Athlete
+from strivers.serializers import CustomJSONDecoder, CustomSessionSerializer
 
 
 class EvalAccessToken(MiddlewareMixin):
     def process_request(self, request):
-        # If an athlete has been setup for the session (in any way, except state by Strava)
-        if 'athlete' in request.session and 'access_token' in request.session['athlete']:
-            athlete = request.session.get('athlete')
-            print('deserialized: ', athlete)
+        # If an athlete has been set up for the session (in any way, except state by Strava)
+        athlete = request.session.get('athlete', None)
+        if athlete and hasattr(athlete, 'access_token'):
 
             # If the athlete is in the database, get it for updating
             try:
-                athlete = Athlete.objects.get(athlete_id=athlete['athlete_id'])
+                athlete = Athlete.objects.get(athlete_id=athlete.athlete_id)
                 athlete_in_db = True
             except Athlete.DoesNotExist:
                 athlete_in_db = False
 
             # Check if the access token has expired and renew if needed
-            if athlete.expires_at < timezone.now().timestamp():
+            if athlete.expires_at < timezone.now():
                 # Config app specifics for exchange
                 client_id = config('CLIENT_ID')
                 client_secret = config('CLIENT_SECRET')
