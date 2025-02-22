@@ -1,8 +1,6 @@
-import json
 from decouple import config
 
 import requests
-from datetime import datetime
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect, render
 import swagger_client as sc
