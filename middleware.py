@@ -3,9 +3,6 @@ import os
 
 from decouple import Config, RepositoryEnv
 import requests
-import django
-django.setup()
-
 from django.conf import settings
 from django.utils import timezone
 from django.utils.deprecation import MiddlewareMixin
