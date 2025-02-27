@@ -1,11 +1,9 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Strivers</title>
-</head>
-<header>
+{% extends "base.html" %}
+
+{% block title %}Strivers Home{% endblock %}
+
+{% block content %}
+<div>
     <h1>Strivers</h1>
     {% if issaved %}
         <h2> Welcome back, {{ name }} </h2>
@@ -16,16 +14,15 @@
     {% else %}
         <h2> Welcome!</h2>
     {% endif %}
-</header>
-<body>
-    {% for opt, act in option_action %}
-        <form action="{{ act }}" method="POST">
-        {% csrf_token %}
-            <button type="submit">{{ opt }}</button>
-        </form>
-    {% endfor %}
-</body>
-<footer>
-    Issue? Please <a href="www.github.com/jiversivers/strivers">submit an issue on GitHub</a>!
-</footer>
-</html>
+</div>
+
+{% for opt, act in option_action %}
+    <form action="{{ act }}" method="POST">
+    {% csrf_token %}
+        <button type="submit">{{ opt }}</button>
+    </form>
+{% endfor %}
+
+<p>Issue? Please <a href="https://www.github.com/jiversivers/strivers">submit an issue on GitHub</a>!</p>
+
+{% endblock %}
