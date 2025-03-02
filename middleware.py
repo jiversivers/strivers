@@ -1,4 +1,3 @@
-import json
 import os
 
 from decouple import Config, RepositoryEnv
@@ -8,7 +7,6 @@ from django.utils import timezone
 from django.utils.deprecation import MiddlewareMixin
 from strivers.clients import get_configured_client
 from strivers.models import Athlete
-from strivers.serializers import CustomJSONDecoder, CustomSessionSerializer
 
 config = Config(RepositoryEnv(os.path.join(settings.BASE_DIR, '.env')))
 
